@@ -174,6 +174,9 @@ def main():
         "%Y-%m-%d %H:%M:%S"
     )
 
+    oracle_connection = None
+    postgres_connection = None
+
     try:
         oracle_connection, postgres_connection = get_database_connections()
         oracle_connection.connect()
@@ -208,29 +211,35 @@ def main():
         end_time_readable = datetime.fromtimestamp(end_time).strftime(
             "%Y-%m-%d %H:%M:%S"
         )
-        query_db = QuerysDB(None, postgres_connection)
-        count_fichas = query_db.select_pg(
-            queries.query_count_fichas(),
-            (start_time_readable, f"{end_time_readable}.999"),
-        )
-        count_aprendices = query_db.select_pg(
-            queries.query_count_aprendiz_formacion_c(),
-            (start_time_readable, f"{end_time_readable}.999"),
-        )
-        count_instructores = query_db.select_pg(
-            queries.query_count_instructor_formacion_c(),
-            (start_time_readable, f"{end_time_readable}.999"),
-        )
-        query_db.insert_or_update(
-            queries.insert_execution_report(),
-            (
-                count_fichas[0] or 0,
-                count_aprendices[0] or 0,
-                count_instructores[0] or 0,
-                start_time_readable,
-                end_time_readable,
-            ),
-        )
+
+        if postgres_connection is not None:
+            try:
+                query_db = QuerysDB(None, postgres_connection)
+                count_fichas = query_db.select_pg(
+                    queries.query_count_fichas(),
+                    (start_time_readable, f"{end_time_readable}.999"),
+                )
+                count_aprendices = query_db.select_pg(
+                    queries.query_count_aprendiz_formacion_c(),
+                    (start_time_readable, f"{end_time_readable}.999"),
+                )
+                count_instructores = query_db.select_pg(
+                    queries.query_count_instructor_formacion_c(),
+                    (start_time_readable, f"{end_time_readable}.999"),
+                )
+                query_db.insert_or_update(
+                    queries.insert_execution_report(),
+                    (
+                        count_fichas[0] or 0,
+                        count_aprendices[0] or 0,
+                        count_instructores[0] or 0,
+                        start_time_readable,
+                        end_time_readable,
+                    ),
+                )
+            except Exception as e:
+                logging.error("Error al registrar reporte de ejecución: %s", e)
+
         execution_time = end_time - start_time
         print("Tiempo de inicio:", start_time_readable, "segundos")
         print("Tiempo de finalización:", end_time_readable, "segundos")
@@ -238,14 +247,27 @@ def main():
 
         status["in_progress"] = False
         write_status(status)
-        oracle_connection.disconnect()
-        postgres_connection.disconnect()
-        discord_logger.send_log_file()
-        try:
 
-            os.remove('discord_log.txt')
-        except Exception as e:
-            e
+        if oracle_connection is not None:
+            try:
+                oracle_connection.disconnect()
+            except Exception:
+                pass
+        if postgres_connection is not None:
+            try:
+                postgres_connection.disconnect()
+            except Exception:
+                pass
+
+        try:
+            discord_logger.send_log_file()
+        except Exception:
+            pass
+
+        try:
+            os.remove("discord_log.txt")
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

@@ -26,6 +26,11 @@ if [[ ! -f "$FICHA_DIR/script.py" ]]; then
   exit 1
 fi
 
+if [[ ! -f "$RUN_SCRIPT" ]]; then
+  echo "No se encontró el script de ejecución: $RUN_SCRIPT"
+  exit 1
+fi
+
 echo "=============================================="
 echo "  Complementaria update all — FICHA"
 echo "  $FICHA_DIR"
@@ -95,7 +100,7 @@ if [[ "$EXEC_MODE" == "1" ]]; then
     esac
   fi
 
-  CMD="cd \"$FICHA_DIR\" && export COMPLEMENTARIA_ANIOS=\"$INPUT_ANIO\" COMPLEMENTARIA_MESES=\"$INPUT_MES\" PYTHON=\"$PYTHON\" && ./run_complementaria_all_por_mes_ficha.sh | tee \"$LOG_FILE\""
+  CMD="cd \"$FICHA_DIR\" && export COMPLEMENTARIA_ANIOS=\"$INPUT_ANIO\" COMPLEMENTARIA_MESES=\"$INPUT_MES\" PYTHON=\"$PYTHON\" && bash ./run_complementaria_all_por_mes_ficha.sh | tee \"$LOG_FILE\""
   tmux new -d -s "$TMUX_SESSION" bash -lc "$CMD"
   echo ""
   echo "Proceso iniciado en tmux: $TMUX_SESSION"
@@ -106,6 +111,6 @@ if [[ "$EXEC_MODE" == "1" ]]; then
 else
   (
     cd "$FICHA_DIR"
-    ./run_complementaria_all_por_mes_ficha.sh | tee "$LOG_FILE"
+    bash ./run_complementaria_all_por_mes_ficha.sh | tee "$LOG_FILE"
   )
 fi
