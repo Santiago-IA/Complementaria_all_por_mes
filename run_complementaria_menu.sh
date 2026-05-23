@@ -1,109 +1,111 @@
 #!/usr/bin/env bash
-# Menú: elige división (all|month|year) y tipo (aprendiz|ficha|instructor), luego hace
-#   cd <carpeta_del_módulo>  y  exec python ./script.py ...
-# La carpeta es absoluta bajo la raíz del repo (ROOT).
-# Uso: ./run_complementaria_menu.sh   |   PYTHON=python3 ./run_complementaria_menu.sh
+# Complementaria update all — ejecutar FICHA por mes
 #
-# Si ves: env: 'bash\r': No such file or directory  → el .sh tiene CRLF; en Linux:
-#   sed -i 's/\r$//' run_complementaria_menu.sh
+# Uso: ./run_complementaria_menu.sh
+#   PYTHON=python3 ./run_complementaria_menu.sh
+#
+# Ver proceso tmux:
+#   tmux ls
+#   tmux a -t complementaria_ficha
 
 set -euo pipefail
 
-PYTHON="${PYTHON:-python}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+FICHA_DIR="$ROOT/complementaria_update_all/complementaria_update_all_ficha"
+RUN_SCRIPT="$FICHA_DIR/run_complementaria_all_por_mes_ficha.sh"
+PYTHON="${PYTHON:-python3}"
+TMUX_SESSION="complementaria_ficha"
 
-echo "=========================================="
-echo "  Complementaria update — menú de ejecución"
-echo "  Raíz del repo: $ROOT"
-echo "=========================================="
-echo ""
-echo "División (rango de fechas del script):"
-echo "  1) all   — complementaria_update_all"
-echo "  2) month — complementaria_update_month"
-echo "  3) year  — complementaria_update_year"
-read -r -p "Elige [1-3] (Enter = 1): " div_choice
-div_choice="${div_choice:-1}"
-case "$div_choice" in
-  1) DIV="all" ;;
-  2) DIV="month" ;;
-  3) DIV="year" ;;
-  *) echo "Opción no válida."; exit 1 ;;
-esac
-
-echo ""
-echo "Proceso / entidad:"
-echo "  1) aprendiz   — entity 4 (registro académico)"
-echo "  2) ficha      — entity 2 (ficha caracterización)"
-echo "  3) instructor — entity 6 (instructor x ficha)"
-read -r -p "Elige [1-3] (Enter = 2): " type_choice
-type_choice="${type_choice:-2}"
-case "$type_choice" in
-  1) TYPE="aprendiz"; ENTITY=4 ;;
-  2) TYPE="ficha"; ENTITY=2 ;;
-  3) TYPE="instructor"; ENTITY=6 ;;
-  *) echo "Opción no válida."; exit 1 ;;
-esac
-
-TARGET_DIR="$ROOT/complementaria_update_${DIV}/complementaria_update_${DIV}_${TYPE}"
-if [[ ! -d "$TARGET_DIR" ]]; then
-  echo "No existe la carpeta: $TARGET_DIR"
+if [[ ! -d "$FICHA_DIR" ]]; then
+  echo "No existe la carpeta de ficha: $FICHA_DIR"
   exit 1
 fi
-if [[ ! -f "$TARGET_DIR/script.py" ]]; then
-  echo "No se encontró script.py en: $TARGET_DIR"
+
+if [[ ! -f "$FICHA_DIR/script.py" ]]; then
+  echo "No se encontró script.py en: $FICHA_DIR"
   exit 1
 fi
+
+echo "=============================================="
+echo "  Complementaria update all — FICHA"
+echo "  $FICHA_DIR"
+echo "=============================================="
+echo ""
+echo "Indica el periodo a procesar (fichas con FIC_FCH_INICIALIZACION en ese mes)."
+echo ""
+
+read -r -p "Mes (01-12): " INPUT_MES
+if [[ ! "$INPUT_MES" =~ ^(0[1-9]|1[0-2])$ ]]; then
+  echo "Mes inválido. Use formato 01-12."
+  exit 1
+fi
+
+read -r -p "Año (ej: 2024): " INPUT_ANIO
+if [[ ! "$INPUT_ANIO" =~ ^(19|20)[0-9]{2}$ ]]; then
+  echo "Año inválido. Use 4 dígitos, ej: 2024."
+  exit 1
+fi
+
+LOG_FILE="log_ficha_${INPUT_MES}_${INPUT_ANIO}.txt"
+PERIODO="${INPUT_MES}_${INPUT_ANIO: -2}"
 
 echo ""
 echo "Modo de ejecución:"
-echo "  1) Proceso interno  — ./script.py --internal=s --entity=... --type_search=..."
-echo "  2) Excel            — ./script.py --excel=s"
-echo "  3) Índice cambio    — ./script.py --internal=n --entity=... [--ica_id=...]"
-read -r -p "Elige [1-3] (Enter = 1): " mode_choice
-mode_choice="${mode_choice:-1}"
-
-# Solo argumentos de script.py; el cd a la división se hace al ejecutar.
-ARGS=()
-case "$mode_choice" in
-  1)
-    case "$DIV" in
-      all)   default_ts="all" ;;
-      month) default_ts="month" ;;
-      year)  default_ts="year" ;;
-      *) default_ts="all" ;;
-    esac
-    read -r -p "type_search (month|year|all) [${default_ts}]: " TS
-    TS="${TS:-$default_ts}"
-    ARGS=(--internal=s --entity="$ENTITY" --type_search="$TS")
-    if [[ "$DIV" == "month" || "$DIV" == "year" ]]; then
-      read -r -p "days (solo month/year) [90]: " DAYS
-      DAYS="${DAYS:-90}"
-      ARGS+=(--days="$DAYS")
-    fi
-    ;;
-  2)
-    ARGS=(--excel=s)
-    ;;
-  3)
-    read -r -p "ica_id [0 = usar máximo ICA en Sofía]: " ICA
-    ICA="${ICA:-0}"
-    ARGS=(--internal=n --entity="$ENTITY" --ica_id="$ICA")
-    ;;
-  *)
-    echo "Opción no válida."; exit 1 ;;
-esac
+echo "  1) tmux (segundo plano, guarda log en la carpeta ficha)"
+echo "  2) Directo (primer plano)"
+read -r -p "Elige [1-2] (Enter = 1): " EXEC_MODE
+EXEC_MODE="${EXEC_MODE:-1}"
 
 echo ""
-echo "Se hará:"
-echo "  cd \"$TARGET_DIR\""
-echo "  $PYTHON ./script.py ${ARGS[*]}"
+echo "Resumen:"
+echo "  División : ficha"
+echo "  Periodo  : $PERIODO  (mes ${INPUT_MES}/${INPUT_ANIO})"
+echo "  Log      : $FICHA_DIR/$LOG_FILE"
+if [[ "$EXEC_MODE" == "1" ]]; then
+  echo "  Modo     : tmux ($TMUX_SESSION)"
+else
+  echo "  Modo     : directo"
+fi
 echo ""
-read -r -p "¿Ejecutar ahora? [s/N]: " confirm
-case "$confirm" in
-  s|S|y|Y) ;;
+
+read -r -p "¿Ejecutar ahora? [S/n]: " CONFIRM
+case "${CONFIRM:-S}" in
+  s|S|y|Y|"") ;;
   *) echo "Cancelado."; exit 0 ;;
 esac
 
-cd "$TARGET_DIR" || { echo "Error: no se pudo entrar a $TARGET_DIR"; exit 1; }
-echo "PWD actual: $(pwd)"
-exec "$PYTHON" ./script.py "${ARGS[@]}"
+export COMPLEMENTARIA_ANIOS="$INPUT_ANIO"
+export COMPLEMENTARIA_MESES="$INPUT_MES"
+export PYTHON
+
+if [[ "$EXEC_MODE" == "1" ]]; then
+  if ! command -v tmux >/dev/null 2>&1; then
+    echo "tmux no está instalado. Ejecutando en primer plano..."
+    EXEC_MODE=2
+  fi
+fi
+
+if [[ "$EXEC_MODE" == "1" ]]; then
+  if tmux has-session -t "$TMUX_SESSION" 2>/dev/null; then
+    echo "La sesión tmux '$TMUX_SESSION' ya existe."
+    read -r -p "¿Terminarla y relanzar? [s/N]: " KILL_CHOICE
+    case "$KILL_CHOICE" in
+      s|S|y|Y) tmux kill-session -t "$TMUX_SESSION" ;;
+      *) echo "Cancelado."; exit 0 ;;
+    esac
+  fi
+
+  CMD="cd \"$FICHA_DIR\" && export COMPLEMENTARIA_ANIOS=\"$INPUT_ANIO\" COMPLEMENTARIA_MESES=\"$INPUT_MES\" PYTHON=\"$PYTHON\" && ./run_complementaria_all_por_mes_ficha.sh | tee \"$LOG_FILE\""
+  tmux new -d -s "$TMUX_SESSION" bash -lc "$CMD"
+  echo ""
+  echo "Proceso iniciado en tmux: $TMUX_SESSION"
+  echo "Log: $FICHA_DIR/$LOG_FILE"
+  echo ""
+  echo "Ver sesiones : tmux ls"
+  echo "Adjuntarse   : tmux a -t $TMUX_SESSION"
+else
+  (
+    cd "$FICHA_DIR"
+    ./run_complementaria_all_por_mes_ficha.sh | tee "$LOG_FILE"
+  )
+fi
