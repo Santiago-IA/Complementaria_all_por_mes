@@ -80,17 +80,29 @@ class FichaCaracterizacion(RecordManager):
         else:
             self._create_newness_if_needed(fic_id, value)
 
+    def _left_active_states(self, old_state, new_state):
+        return (
+            old_state != new_state
+            and old_state in self.ACTIVE_STATES
+            and new_state not in self.ACTIVE_STATES
+        )
+
+    def _entered_active_states(self, old_state, new_state):
+        return (
+            old_state != new_state
+            and old_state not in self.ACTIVE_STATES
+            and new_state in self.ACTIVE_STATES
+        )
+
     def _create_newness_if_needed(self, fic_id, value):
         fic_record = self._get_record_by_id_pg(
             queries.query_ficha_caracterizacion_post(), fic_id
         )
-        fic_state = int(fic_record[17]) if fic_record is not None else None
-        if (
-            fic_state != value
-            and fic_state in self.ACTIVE_STATES
-            and value not in self.ACTIVE_STATES
-            and fic_record is not None
-        ):
+        if fic_record is None or fic_record[21] is None:
+            return
+
+        fic_state = int(fic_record[17])
+        if self._left_active_states(fic_state, value):
             print("ingresando novedad ficha")
             visible = 0
             operation = "U" if value == self.ENDED_FIC_STATE else "I"
@@ -107,7 +119,20 @@ class FichaCaracterizacion(RecordManager):
             )
 
     def _update_visible_state(self, fic_id, value):
-        visible = 1 if value in self.ACTIVE_STATES else 0
+        fic_record = self._get_record_by_id_pg(
+            queries.query_ficha_caracterizacion_post(), fic_id
+        )
+        if fic_record is None:
+            return
+
+        fic_state = int(fic_record[17])
+        if self._left_active_states(fic_state, value):
+            self._update_newness_ficha(0, value, fic_id)
+        elif self._entered_active_states(fic_state, value):
+            self._update_newness_ficha(1, value, fic_id)
+
+    def _update_newness_ficha(self, visible, value, fic_id):
+        print("actualizando novedad ficha")
         columns_and_values = {
             "visible": visible,
             "LMS_ESTADO": self.LMS_STATES["procesado"],
@@ -128,7 +153,7 @@ class FichaCaracterizacion(RecordManager):
             )
         elif not self._exist_in_db(
             queries.query_ficha_caracterizacion_post(), record[0]
-        ) and int(record[17]) in [1, 7]:
+        ) and int(record[17]) in self.ACTIVE_STATES:
             self._create_all_records(record)
             OrderProcess.insert_status_process(
                 self.pg_connection,

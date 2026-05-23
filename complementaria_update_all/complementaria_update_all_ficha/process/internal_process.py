@@ -19,10 +19,12 @@ class InternalProcess:
         self.oc_connection = oc_connection
         self.pg_connection = pg_connection
         self.type_search = "all"
+        self.periodo = None
 
-    def execute(self, entity, type_search):
+    def execute(self, entity, type_search, periodo=None):
         try:
             self.type_search = type_search
+            self.periodo = periodo
             fichas_c = self._get_fichas_complementaria(entity)
             print(f"Fichas complementarias para procesar {len(fichas_c)}")
             for fic_id in fichas_c:
@@ -70,7 +72,13 @@ class InternalProcess:
             date_condition = f""" AND "FIC"."FIC_FCH_INICIALIZACION" >= '{start_date}'::DATE AND "FIC"."FIC_FCH_INICIALIZACION" <= '{end_date}'::DATE """
         
         elif self.type_search == "all":
-            date_condition = f""" AND "FIC"."FIC_FCH_INICIALIZACION" <= '{end_date}'::DATE """
+            if self.periodo:
+                date_condition = f"""
+            AND "FIC"."FIC_FCH_INICIALIZACION" >= '{start_date}'::DATE
+            AND "FIC"."FIC_FCH_INICIALIZACION" < '{end_date}'::DATE
+            """
+            else:
+                date_condition = f""" AND "FIC"."FIC_FCH_INICIALIZACION" <= '{end_date}'::DATE """
         
         query = f"""
         SELECT DISTINCT "FIC"."FIC_ID" 
@@ -99,6 +107,17 @@ class InternalProcess:
             return start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
 
         elif self.type_search == "all":
+            if self.periodo:
+                mes, anio = self.periodo.split("_")
+                anio = int("20" + anio)
+                mes = int(mes)
+                fecha_inicio = datetime(anio, mes, 1)
+                if mes == 12:
+                    fecha_fin = datetime(anio + 1, 1, 1)
+                else:
+                    fecha_fin = datetime(anio, mes + 1, 1)
+                return fecha_inicio.strftime("%Y-%m-%d"), fecha_fin.strftime("%Y-%m-%d")
+
             start_date = datetime(start_date.year - 1, 1, 1).date()
             end_date = datetime(start_date.year, 12, 31).date()
             return start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")

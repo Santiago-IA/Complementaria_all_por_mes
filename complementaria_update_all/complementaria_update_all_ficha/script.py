@@ -8,6 +8,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import sys
 import requests
+import re
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'bd'))
 
@@ -125,7 +126,13 @@ def parse_arguments():
         default="all",
         help="Determina como se cargarán las fichas a procesar, año, mes o todas",
     )
-    
+    parser.add_argument(
+        "--periodo",
+        type=str,
+        default=None,
+        help="Periodo en formato MM_YY ejemplo 02_26",
+    )
+
     return parser.parse_args()
 
 
@@ -148,6 +155,17 @@ def main():
         print("El proceso ya está en ejecución.")
         return
 
+    args = parse_arguments()
+
+    if args.type_search == "all":
+        if not args.periodo:
+            print("Error: Debe enviar --periodo en formato MM_YY (ej: 02_26)")
+            return
+
+        if not re.match(r"^\d{2}_\d{2}$", args.periodo):
+            print("Error: Formato inválido. Use MM_YY (ej: 02_26)")
+            return
+
     status["in_progress"] = True
     write_status(status)
 
@@ -161,13 +179,12 @@ def main():
         oracle_connection.connect()
         postgres_connection.connect()
 
-        args = parse_arguments()
         if args.excel == "s":
             excel_process = ExcelProcess(oracle_connection, postgres_connection)
             excel_process.execute()
         elif args.internal == "s":
             internal_process = InternalProcess(oracle_connection, postgres_connection)
-            internal_process.execute(args.entity,args.type_search)
+            internal_process.execute(args.entity, args.type_search, args.periodo)
         else:
             query_db = QuerysDB(oracle_connection, postgres_connection)
             if args.ica_id != 0:
