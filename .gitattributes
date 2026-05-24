@@ -1,4 +1,2 @@
-* text=auto
+# Scripts bash: siempre LF (Linux). Evita CRLF al clonar/editar en Windows.
 *.sh text eol=lf
-*.py text eol=lf
-*.bash text eol=lf

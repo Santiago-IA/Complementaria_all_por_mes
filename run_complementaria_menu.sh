@@ -40,8 +40,11 @@ echo "Indica el periodo a procesar (fichas con FIC_FCH_INICIALIZACION en ese mes
 echo ""
 
 read -r -p "Mes (01-12): " INPUT_MES
+if [[ "$INPUT_MES" =~ ^[1-9]$ ]]; then
+  INPUT_MES="0$INPUT_MES"
+fi
 if [[ ! "$INPUT_MES" =~ ^(0[1-9]|1[0-2])$ ]]; then
-  echo "Mes inválido. Use formato 01-12."
+  echo "Mes inválido. Use 01-12 (también vale 1-9, se convierte a 01-09)."
   exit 1
 fi
 
@@ -100,17 +103,28 @@ if [[ "$EXEC_MODE" == "1" ]]; then
     esac
   fi
 
-  CMD="cd \"$FICHA_DIR\" && export COMPLEMENTARIA_ANIOS=\"$INPUT_ANIO\" COMPLEMENTARIA_MESES=\"$INPUT_MES\" PYTHON=\"$PYTHON\" && bash ./run_complementaria_all_por_mes_ficha.sh | tee \"$LOG_FILE\""
-  tmux new -d -s "$TMUX_SESSION" bash -lc "$CMD"
-  echo ""
-  echo "Proceso iniciado en tmux: $TMUX_SESSION"
-  echo "Log: $FICHA_DIR/$LOG_FILE"
-  echo ""
-  echo "Ver sesiones : tmux ls"
-  echo "Adjuntarse   : tmux a -t $TMUX_SESSION"
+  CMD="cd \"$FICHA_DIR\" && export COMPLEMENTARIA_ANIOS=\"$INPUT_ANIO\" COMPLEMENTARIA_MESES=\"$INPUT_MES\" PYTHON=\"$PYTHON\" && bash ./run_complementaria_all_por_mes_ficha.sh 2>&1 | tee \"$LOG_FILE\""
+  tmux new -d -s "$TMUX_SESSION" bash -c "$CMD"
+  sleep 1
+  if tmux has-session -t "$TMUX_SESSION" 2>/dev/null; then
+    echo ""
+    echo "Proceso iniciado en tmux: $TMUX_SESSION"
+    echo "Log: $FICHA_DIR/$LOG_FILE"
+    echo ""
+    echo "Ver sesiones : tmux ls"
+    echo "Adjuntarse   : tmux a -t $TMUX_SESSION"
+  else
+    echo ""
+    echo "ERROR: la sesión tmux terminó al instante. Revisa el log:"
+    echo "  tail -50 \"$FICHA_DIR/$LOG_FILE\""
+    echo ""
+    echo "Causa habitual: scripts .sh subidos con finales Windows (CRLF)."
+    echo "  Vuelva a desplegar desde el repositorio (los .sh deben tener solo LF)."
+    exit 1
+  fi
 else
   (
     cd "$FICHA_DIR"
-    bash ./run_complementaria_all_por_mes_ficha.sh | tee "$LOG_FILE"
+    bash ./run_complementaria_all_por_mes_ficha.sh 2>&1 | tee "$LOG_FILE"
   )
 fi
