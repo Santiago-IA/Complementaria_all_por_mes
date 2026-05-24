@@ -1,6 +1,5 @@
 import importlib
 import pdb
-import time
 from bd.db.querys_db import QuerysDB
 from bd.db.insert_into_histories import InsertIntoHistories
 from datetime import datetime, timedelta
@@ -30,7 +29,6 @@ class InternalProcess:
             for fic_id in fichas_c:
                 print(fic_id)
                 self._define_what_process_run(None, entity, fic_id[0])
-                time.sleep(0.3)
         except Exception as e:
             print("excepcioni", e,traceback.format_exc())
             insert_into_histories = InsertIntoHistories(self.pg_connection)

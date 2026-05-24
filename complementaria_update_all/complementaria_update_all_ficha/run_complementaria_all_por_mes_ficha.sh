@@ -47,7 +47,6 @@ for anio in "${ANIOS[@]}"; do
       else
         echo "ERROR ficha $periodo"
         ((intento++)) || true
-        sleep 5
       fi
     done
 
