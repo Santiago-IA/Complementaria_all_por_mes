@@ -1,0 +1,18 @@
+ controlador.py
+otros/*
+entity/__pycache__/*
+entity/__pycache__
+bd/__pycache__/*
+bd/__pycache__
+__pycache__
+process_status.json
+.env
+test/.pytest_cache
+test/entity/__pycache__
+test/exception/__pycache__
+.pytest_cache
+.coverage
+coverage.xml
+.scannerwork
+db/queries.py
+.vscode

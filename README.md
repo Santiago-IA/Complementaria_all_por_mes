@@ -18,6 +18,7 @@ chmod +x run_complementaria_menu.sh
 
 Te preguntará:
 
+0. **División** → `1` ficha, `2` aprendiz, `3` instructor
 1. **Mes** → escribe el mes con 2 números: `01` a `12`  
    (enero = `01`, marzo = `03`, diciembre = `12`)
 
@@ -27,16 +28,17 @@ Te preguntará:
 
 4. **¿Ejecutar?** → `S` o Enter.
 
-### Ejemplo (enero 2024)
+### Ejemplo (ficha, enero 2024)
 
 ```
+División [1-3] (Enter = 1): 1
 Mes (01-12): 01
 Año (ej: 2024): 2024
 Elige [1-2]: 2
 ¿Ejecutar ahora? [S/n]: S
 ```
 
-Al terminar bien verás: `OK ficha 01_24`
+Al terminar bien verás: `OK <division> 01_24` (ej: `OK ficha 01_24`)
 
 ### No uses
 
