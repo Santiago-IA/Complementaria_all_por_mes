@@ -173,7 +173,7 @@ def main():
             if not args.periodo:
                 print("Error: Debe enviar --periodo en formato MM_YY (ej: 02_26)")
                 return
-            if not re.match(r"^\\d{2}_\\d{2}$", args.periodo):
+            if not re.match(r"^\d{2}_\d{2}$", args.periodo):
                 print("Error: Formato inválido. Use MM_YY (ej: 02_26)")
                 return
 
