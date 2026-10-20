@@ -1,4 +1,4 @@
-# Complementaria update all — FICHA por mes
+# Complementaria update all — por mes
 
 ## Cómo ejecutar
 
@@ -8,9 +8,11 @@
 
 ```bash
 chmod +x run_complementaria_menu.sh
+# si el .sh vino de Windows:
+sed -i 's/\r$//' run_complementaria_menu.sh
 ```
 
-### Cada vez que quieras correr un mes
+### Cada vez
 
 ```bash
 ./run_complementaria_menu.sh
@@ -18,38 +20,40 @@ chmod +x run_complementaria_menu.sh
 
 Te preguntará:
 
-0. **División** → `1` ficha, `2` aprendiz, `3` instructor
-1. **Mes** → escribe el mes con 2 números: `01` a `12`  
-   (enero = `01`, marzo = `03`, diciembre = `12`)
+0. **División** → `1` ficha · `2` aprendiz · `3` instructor · **`4` todas** (recomendado)
+1. **Mes(es)** → `01`, `01-12`, o Enter = todos
+2. **Año(s)** → `2024` o `2024-2026`
+3. **Modo** → `1` = tmux (recomendado para rangos largos) · `2` = directo
+4. **¿Ejecutar?** → `S` o Enter
 
-2. **Año** → escribe el año completo: `2024`, `2025`, etc.
-
-3. **Modo** → `2` si quieres ver todo en pantalla (recomendado). `1` o Enter = segundo plano.
-
-4. **¿Ejecutar?** → `S` o Enter.
-
-### Ejemplo (ficha, enero 2024)
+### Ejemplo: depurar 2024–2026 (ficha + aprendiz + instructor)
 
 ```
-División [1-3] (Enter = 1): 1
-Mes (01-12): 01
-Año (ej: 2024): 2024
-Elige [1-2]: 2
+División [1-4] (Enter = 4): 4
+Mes(es) [Enter = 01-12]: 01-12
+Año(s) (ej: 2024-2026): 2024-2026
+Elige [1-2]: 1
 ¿Ejecutar ahora? [S/n]: S
 ```
 
-Al terminar bien verás: `OK <division> 01_24` (ej: `OK ficha 01_24`)
+Orden interno: **ficha → aprendiz → instructor**, mes a mes (36 periodos × 3 divisiones).
 
-### No uses
+Ver progreso:
 
-- `01-24` ni `01/2024` en el mes — solo el mes (`01`), el año va aparte.
-
-### Log
-
+```bash
+tmux a -t complementaria_all
 ```
-complementaria_update_all/complementaria_update_all_ficha/log_ficha_01_2024.txt
-```
-(cambia `01` y `2024` según lo que hayas puesto)
+
+(salir sin matar: `Ctrl+b` luego `d`)
+
+### Logs
+
+- Maestro (opción 4): `log_all_01-12_2024-2026.txt` (raíz del proyecto)
+- Por división:
+  - `complementaria_update_all/..._ficha/log_ficha_01-12_2024-2026.txt`
+  - `..._aprendiz/log_aprendiz_01-12_2024-2026.txt`
+  - `..._instructor/log_instructor_01-12_2024-2026.txt`
+
+Al terminar cada mes verás: `OK <division> MM_YY` (ej: `OK ficha 01_24`)
 
 ---
-
