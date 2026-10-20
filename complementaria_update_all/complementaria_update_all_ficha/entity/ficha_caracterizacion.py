@@ -102,7 +102,15 @@ class FichaCaracterizacion(RecordManager):
             return
 
         fic_state = int(fic_record[17])
-        if self._left_active_states(fic_state, value):
+        # Caso normal: sale de activo (1/7/12) a no activo.
+        # Caso retroactivo: ya está fuera de activos y no existe NOVEDAD_FICHA_C
+        # para apagar la ficha → insertar novedad (visible=0).
+        left_active = self._left_active_states(fic_state, value)
+        already_inactive_without_newness = (
+            value not in self.ACTIVE_STATES
+            and fic_state not in self.ACTIVE_STATES
+        )
+        if left_active or already_inactive_without_newness:
             print("ingresando novedad ficha")
             visible = 0
             operation = "U" if value == self.ENDED_FIC_STATE else "I"
