@@ -18,6 +18,8 @@ sed -i 's/\r$//' run_complementaria_menu.sh
 ./run_complementaria_menu.sh
 ```
 
+**Ficha** filtra el periodo por **`FIC_FCH_REGISTRO`**. Aprendiz/instructor siguen con `FIC_FCH_INICIALIZACION`.
+
 Te preguntará:
 
 0. **División** → `1` ficha · `2` aprendiz · `3` instructor · **`4` todas** (recomendado)

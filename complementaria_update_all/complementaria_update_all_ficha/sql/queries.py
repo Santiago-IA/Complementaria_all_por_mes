@@ -777,7 +777,7 @@ def query_count_fichas():
     where "LMS_ID" is null and "LMS_ESTADO" =1 
    	and prf."PRF_TIPO_PROGRAMA" = 'C' 
   	and fic."FIC_MOD_FORMACION" in ('V','A') 
- 	and fic.created_at between %s and %s
+ 	and fic."FIC_FCH_REGISTRO" between %s::DATE and %s::DATE
     """
 
 def  query_count_aprendiz_formacion_c():

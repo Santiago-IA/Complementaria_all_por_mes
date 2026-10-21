@@ -95,6 +95,7 @@ class FichaCaracterizacion(RecordManager):
         )
 
     def _create_newness_if_needed(self, fic_id, value):
+        """value = FIC_ESTADO en Sofía (Oracle)."""
         fic_record = self._get_record_by_id_pg(
             queries.query_ficha_caracterizacion_post(), fic_id
         )
@@ -102,15 +103,11 @@ class FichaCaracterizacion(RecordManager):
             return
 
         fic_state = int(fic_record[17])
-        # Caso normal: sale de activo (1/7/12) a no activo.
-        # Caso retroactivo: ya está fuera de activos y no existe NOVEDAD_FICHA_C
-        # para apagar la ficha → insertar novedad (visible=0).
+        # Caso normal: sale de activo (1/7/12) → no activo.
+        # Caso retroactivo / Sofía ya apagada: sin novedad → insertar para apagar.
         left_active = self._left_active_states(fic_state, value)
-        already_inactive_without_newness = (
-            value not in self.ACTIVE_STATES
-            and fic_state not in self.ACTIVE_STATES
-        )
-        if left_active or already_inactive_without_newness:
+        sofia_inactive_needs_newness = value not in self.ACTIVE_STATES
+        if left_active or sofia_inactive_needs_newness:
             print("ingresando novedad ficha")
             visible = 0
             operation = "U" if value == self.ENDED_FIC_STATE else "I"
@@ -127,6 +124,7 @@ class FichaCaracterizacion(RecordManager):
             )
 
     def _update_visible_state(self, fic_id, value):
+        """value = FIC_ESTADO en Sofía (Oracle). Novedad ya existe."""
         fic_record = self._get_record_by_id_pg(
             queries.query_ficha_caracterizacion_post(), fic_id
         )
@@ -135,21 +133,23 @@ class FichaCaracterizacion(RecordManager):
 
         fic_state = int(fic_record[17])
         if self._left_active_states(fic_state, value):
+            # PG activo → Sofía no activo: apagar novedad
             self._update_newness_ficha(0, value, fic_id)
         elif self._entered_active_states(fic_state, value):
+            # PG no activo → Sofía activo: encender novedad
             self._update_newness_ficha(1, value, fic_id)
-        elif self._should_resync_inactive_newness(fic_state, value, fic_id):
-            # Sofía e Integración iguales y fuera de activos,
-            # pero la novedad no refleja ese estado → apagar.
+        elif value not in self.ACTIVE_STATES and self._newness_needs_turn_off(
+            fic_id, value
+        ):
+            # Sofía apagada y novedad mal (ej. FIC_ESTADO=8 pero visible=1)
             self._update_newness_ficha(0, value, fic_id)
 
-    def _should_resync_inactive_newness(self, fic_state, sofia_state, fic_id):
-        """True si PG==Sofía, fuera de activos, y la novedad difiere."""
-        if fic_state != sofia_state:
-            return False
-        if sofia_state in self.ACTIVE_STATES:
-            return False
-
+    def _newness_needs_turn_off(self, fic_id, sofia_state):
+        """
+        True si la novedad no refleja ficha apagada:
+        - visible != 0 con estado fuera de activos, o
+        - FIC_ESTADO de la novedad != Sofía.
+        """
         news = self._get_record_by_id_pg(
             queries.query_newness_course_c_sync_fields(), fic_id
         )
@@ -158,6 +158,11 @@ class FichaCaracterizacion(RecordManager):
 
         news_fic_estado = int(news[0]) if news[0] is not None else None
         news_visible = int(news[1]) if news[1] is not None else None
+
+        if news_fic_estado is not None and news_fic_estado not in self.ACTIVE_STATES:
+            if news_visible != 0:
+                return True
+
         return news_fic_estado != sofia_state or news_visible != 0
 
     def _update_newness_ficha(self, visible, value, fic_id):

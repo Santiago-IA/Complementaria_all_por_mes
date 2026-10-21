@@ -64,19 +64,19 @@ class InternalProcess:
         start_date, end_date = self._get_date_of_initialization()
         
         if self.type_search == "month":
-            date_condition = f""" AND "FIC"."FIC_FCH_INICIALIZACION" >= '{start_date}'::DATE """
+            date_condition = f""" AND "FIC"."FIC_FCH_REGISTRO" >= '{start_date}'::DATE """
         
         elif self.type_search == "year":
-            date_condition = f""" AND "FIC"."FIC_FCH_INICIALIZACION" >= '{start_date}'::DATE AND "FIC"."FIC_FCH_INICIALIZACION" <= '{end_date}'::DATE """
+            date_condition = f""" AND "FIC"."FIC_FCH_REGISTRO" >= '{start_date}'::DATE AND "FIC"."FIC_FCH_REGISTRO" <= '{end_date}'::DATE """
         
         elif self.type_search == "all":
             if self.periodo:
                 date_condition = f"""
-            AND "FIC"."FIC_FCH_INICIALIZACION" >= '{start_date}'::DATE
-            AND "FIC"."FIC_FCH_INICIALIZACION" < '{end_date}'::DATE
+            AND "FIC"."FIC_FCH_REGISTRO" >= '{start_date}'::DATE
+            AND "FIC"."FIC_FCH_REGISTRO" < '{end_date}'::DATE
             """
             else:
-                date_condition = f""" AND "FIC"."FIC_FCH_INICIALIZACION" <= '{end_date}'::DATE """
+                date_condition = f""" AND "FIC"."FIC_FCH_REGISTRO" <= '{end_date}'::DATE """
         
         query = f"""
         SELECT DISTINCT "FIC"."FIC_ID" 
