@@ -698,6 +698,15 @@ def query_newness_course_c():
     """
 
 
+def query_newness_course_c_sync_fields():
+    """Campos usados para detectar novedad desfasada vs FIC_ESTADO."""
+    return """
+    SELECT NFC."FIC_ESTADO", NFC.visible, NFC."LMS_ESTADO", NFC."OPERATION"
+    FROM "INTEGRACION"."NOVEDAD_FICHA_C" NFC
+    WHERE NFC."FIC_ID" = %s
+    """
+
+
 def insert_newness_enroll_c():
     return """ 
     INSERT INTO "INTEGRACION"."NOVEDAD_ENROLL_C"

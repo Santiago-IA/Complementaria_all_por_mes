@@ -138,6 +138,27 @@ class FichaCaracterizacion(RecordManager):
             self._update_newness_ficha(0, value, fic_id)
         elif self._entered_active_states(fic_state, value):
             self._update_newness_ficha(1, value, fic_id)
+        elif self._should_resync_inactive_newness(fic_state, value, fic_id):
+            # Sofía e Integración iguales y fuera de activos,
+            # pero la novedad no refleja ese estado → apagar.
+            self._update_newness_ficha(0, value, fic_id)
+
+    def _should_resync_inactive_newness(self, fic_state, sofia_state, fic_id):
+        """True si PG==Sofía, fuera de activos, y la novedad difiere."""
+        if fic_state != sofia_state:
+            return False
+        if sofia_state in self.ACTIVE_STATES:
+            return False
+
+        news = self._get_record_by_id_pg(
+            queries.query_newness_course_c_sync_fields(), fic_id
+        )
+        if news is None:
+            return False
+
+        news_fic_estado = int(news[0]) if news[0] is not None else None
+        news_visible = int(news[1]) if news[1] is not None else None
+        return news_fic_estado != sofia_state or news_visible != 0
 
     def _update_newness_ficha(self, visible, value, fic_id):
         print("actualizando novedad ficha")
