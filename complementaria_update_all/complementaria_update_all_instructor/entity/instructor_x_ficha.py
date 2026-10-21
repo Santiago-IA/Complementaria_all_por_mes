@@ -16,7 +16,9 @@ class InstructorXFicha(RecordManager):
     NAME_ID_ENROLL_C = "ID_USUARIO_LMS_ENROLL"
 
     ACTIVE_STATES = ["V"]
-    
+    # Misma regla que ficha: fuera de estos = ficha apagada (prioridad sobre INF_ESTADO en Sofía).
+    FICHA_ACTIVE_STATES = [1, 7, 12]
+
     COL_DOC_TYPES = ["CC", "TI"]
 
     def __init__(self, oc_connection, pg_connection, record=None, fic_id=None):
@@ -70,8 +72,23 @@ class InstructorXFicha(RecordManager):
     def _update_from_eca_record(self):
         if self._exist_in_db(queries.query_instructorxficha_post(), self.eca_record[2]):
             inf_id, column_name, new_value = self._get_info_from_record(self.eca_record)
-            columns_and_values = {column_name: new_value}
+            ixf_record = self._get_record_by_id_pg(
+                queries.query_instructorxficha_post(), inf_id
+            )
+            fic_id = ixf_record[2] if ixf_record is not None else None
+
+            # Ficha apagada: solo novedad (suspend); no tocar V_INSTRUCTORXFICHA_B
+            # para que otras divisiones no detecten cambio y lo reactiven.
             self._register_newness_enroll_t(inf_id, new_value)
+            if fic_id is not None and self._is_ficha_inactive(fic_id):
+                OrderProcess.insert_status_process(
+                    self.pg_connection,
+                    self.eca_record,
+                    "FICHA APAGADA: SOLO NOVEDAD INSTRUCTOR (SIN UPDATE INF)",
+                )
+                return
+
+            columns_and_values = {column_name: new_value}
             self._update_column(
                 self.TABLE_NAME, columns_and_values, self.NAME_ID, inf_id
             )
@@ -89,66 +106,100 @@ class InstructorXFicha(RecordManager):
         else:
             self._create_newness_enroll_if_needed(inf_id, value)
 
+    def _is_ficha_inactive(self, fic_id):
+        """True si la ficha en Integración está fuera de estados activos."""
+        fic_record = self._get_record_by_id_pg(
+            queries.query_ficha_caracterizacion_post(), fic_id
+        )
+        if fic_record is None or fic_record[17] is None:
+            return False
+        return int(fic_record[17]) not in self.FICHA_ACTIVE_STATES
+
+    def _instructor_is_vigente(self, ixf_state, value):
+        return ixf_state in self.ACTIVE_STATES or value in self.ACTIVE_STATES
+
+    def _left_instructor_active_states(self, ixf_state, value):
+        return (
+            ixf_state != value
+            and ixf_state in self.ACTIVE_STATES
+            and value not in self.ACTIVE_STATES
+        )
+
+    def _entered_instructor_active_states(self, ixf_state, value):
+        return (
+            ixf_state != value
+            and ixf_state not in self.ACTIVE_STATES
+            and value in self.ACTIVE_STATES
+        )
+
     def _create_newness_enroll_if_needed(self, inf_id, value):
         ixf_record = self._get_record_by_id_pg(
             queries.query_instructorxficha_post(), inf_id
         )
-        # if ixf_record is None:
+        if ixf_record is None:
+            return
+
         nis = ixf_record[1]
         fic_id = ixf_record[2]
         ixf_state = ixf_record[3]
 
         enrollment = self._get_enrollment_by_nis_and_fic_id(nis, fic_id)
+        if enrollment is None:
+            return
 
-        if enrollment is not None:
-            fic_data = self._get_info_ficha_for_enroll(inf_id)
-            fun_record = self._get_record_by_id_pg(
-                queries.query_funcionario_post(), ixf_record[1]
+        fic_data = self._get_info_ficha_for_enroll(inf_id)
+        fun_record = self._get_record_by_id_pg(
+            queries.query_funcionario_post(), ixf_record[1]
+        )
+        if fic_data is None or fun_record is None or fun_record[15] is None:
+            return
+
+        ficha_inactive = self._is_ficha_inactive(fic_id)
+        # Prioridad: ficha apagada + instructor vigente → novedad para apagarlo
+        # aunque Sofía/Oracle diga INF_ESTADO = V.
+        force_suspend_by_ficha = ficha_inactive and self._instructor_is_vigente(
+            ixf_state, value
+        )
+        left_active = self._left_instructor_active_states(ixf_state, value)
+
+        if force_suspend_by_ficha or left_active:
+            print("ingresando novedad enroll instructor")
+            self._create_record(
+                queries.insert_newness_ixf_enroll_c(),
+                (
+                    inf_id,
+                    value,
+                    self.LMS_STATES["procesado"],
+                    fun_record[0],
+                    fun_record[15],
+                    1,
+                    "I",
+                    fic_data[0],
+                    fic_data[1],
+                    3,
+                ),
             )
-            if (
-                ixf_state != value
-                and ixf_state in self.ACTIVE_STATES
-                and value not in self.ACTIVE_STATES
-                and fun_record[15] is not None
-            ):
-                suspend = 1
-                print("ingresando novedad enroll instructor")
-                self._create_record(
-                    queries.insert_newness_ixf_enroll_c(),
-                    (
-                        inf_id,
-                        value,
-                        self.LMS_STATES["procesado"],
-                        fun_record[0],
-                        fun_record[15],
-                        suspend,
-                        "I",
-                        fic_data[0],
-                        fic_data[1],
-                        3,
-                    ),
-                )
 
     def _update_suspend_state(self, inf_id, value):
         ixf_record = self._get_record_by_id_pg(
             queries.query_instructorxficha_post(), inf_id
         )
+        if ixf_record is None:
+            return
+
         ixf_state = ixf_record[3]
+        fic_id = ixf_record[2]
         print("actualizando novedad enroll instructor")
-        if (
-            ixf_state != value
-            and ixf_state in self.ACTIVE_STATES
-            and value not in self.ACTIVE_STATES
-        ):
-            suspend = 1
-            self._update_newnewss_enroll(suspend, value, inf_id)
-        elif (
-            ixf_state != value
-            and ixf_state not in self.ACTIVE_STATES
-            and value in self.ACTIVE_STATES
-        ):
-            suspend = 0
-            self._update_newnewss_enroll(suspend, value, inf_id)
+
+        # Prioridad: ficha apagada → ocultar instructor (suspend=1), sin reactivar.
+        if self._is_ficha_inactive(fic_id):
+            self._update_newnewss_enroll(1, value, inf_id)
+            return
+
+        if self._left_instructor_active_states(ixf_state, value):
+            self._update_newnewss_enroll(1, value, inf_id)
+        elif self._entered_instructor_active_states(ixf_state, value):
+            self._update_newnewss_enroll(0, value, inf_id)
 
     def _update_newnewss_enroll(self, suspend, value, inf_id):
         columns_and_values = {
@@ -186,7 +237,11 @@ class InstructorXFicha(RecordManager):
             )
 
     def _update_all_row(self, ixf):
+        # Siempre gestiona novedad; si la ficha está apagada no replica Sofía
+        # sobre V_INSTRUCTORXFICHA_B (evita que otra división reactive al instructor).
         self._register_newness_enroll_t(ixf[0], ixf[3])
+        if self._is_ficha_inactive(ixf[2]):
+            return
         self.insert_or_update(
             queries.update_instructorxficha_row(), self._swap_first_and_last(ixf)
         )
